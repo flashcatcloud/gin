@@ -1,5 +1,4 @@
-
-/ckage gin
+package gin
 
 import (
 	"bufio"
