@@ -6,6 +6,7 @@ package gin
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"net"
 	"net/http"
@@ -41,17 +42,23 @@ type ResponseWriter interface {
 
 	// Pusher get the http.Pusher for server push
 	Pusher() http.Pusher
+
+	/////////////////// CUSTOMIZE ///////////////////////
+	Body() []byte
+	Len() int
 }
 
 type responseWriter struct {
 	http.ResponseWriter
 	size   int
 	status int
+	body   bytes.Buffer
 }
 
 var _ ResponseWriter = &responseWriter{}
 
 func (w *responseWriter) reset(writer http.ResponseWriter) {
+	w.body.Reset()
 	w.ResponseWriter = writer
 	w.size = noWritten
 	w.status = defaultStatus
@@ -75,6 +82,7 @@ func (w *responseWriter) WriteHeaderNow() {
 
 func (w *responseWriter) Write(data []byte) (n int, err error) {
 	w.WriteHeaderNow()
+	w.body.Write(data)
 	n, err = w.ResponseWriter.Write(data)
 	w.size += n
 	return
@@ -124,3 +132,12 @@ func (w *responseWriter) Pusher() (pusher http.Pusher) {
 	}
 	return nil
 }
+
+func (w *responseWriter) Body() []byte {
+	return w.body.Bytes()
+}
+
+func (w *responseWriter) Len() int {
+	return w.body.Len()
+}
+
