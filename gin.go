@@ -574,6 +574,30 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	engine.pool.Put(c)
 }
 
+/////////////////// CUSTOMIZE ///////////////////////
+func (engine *Engine) HandleContextProxy(c *Context) {
+	oldIndexValue := c.index
+	oldHandlers := c.handlers
+	oldFullPath := c.fullPath
+
+	c.index = -1
+	c.handlers = nil
+	c.fullPath = ""
+	c.Params = c.Params[:0]
+	c.Accepted = nil
+	c.queryCache = nil
+	c.formCache = nil
+	c.sameSite = 0
+	*c.params = (*c.params)[:0]
+	*c.skippedNodes = (*c.skippedNodes)[:0]
+
+	engine.handleHTTPRequest(c)
+
+	c.index = oldIndexValue
+	c.handlers = oldHandlers
+	c.fullPath = oldFullPath
+}
+
 // HandleContext re-enters a context that has been rewritten.
 // This can be done by setting c.Request.URL.Path to your new target.
 // Disclaimer: You can loop yourself to deal with this, use wisely.
