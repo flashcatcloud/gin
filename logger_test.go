@@ -5,10 +5,10 @@
 package gin
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +20,7 @@ func init() {
 }
 
 func TestLogger(t *testing.T) {
-	buffer := new(bytes.Buffer)
+	buffer := new(strings.Builder)
 	router := New()
 	router.Use(LoggerWithWriter(buffer))
 	router.GET("/example", func(c *Context) {})
@@ -84,7 +84,7 @@ func TestLogger(t *testing.T) {
 }
 
 func TestLoggerWithConfig(t *testing.T) {
-	buffer := new(bytes.Buffer)
+	buffer := new(strings.Builder)
 	router := New()
 	router.Use(LoggerWithConfig(LoggerConfig{Output: buffer}))
 	router.GET("/example", func(c *Context) {})
@@ -148,7 +148,7 @@ func TestLoggerWithConfig(t *testing.T) {
 }
 
 func TestLoggerWithFormatter(t *testing.T) {
-	buffer := new(bytes.Buffer)
+	buffer := new(strings.Builder)
 
 	d := DefaultWriter
 	DefaultWriter = buffer
@@ -182,7 +182,7 @@ func TestLoggerWithFormatter(t *testing.T) {
 func TestLoggerWithConfigFormatting(t *testing.T) {
 	var gotParam LogFormatterParams
 	var gotKeys map[string]any
-	buffer := new(bytes.Buffer)
+	buffer := new(strings.Builder)
 
 	router := New()
 	router.engine.trustedCIDRs, _ = router.engine.prepareTrustedCIDRs()
@@ -310,6 +310,7 @@ func TestColorForStatus(t *testing.T) {
 		return p.StatusCodeColor()
 	}
 
+	assert.Equal(t, white, colorForStatus(http.StatusContinue), "1xx should be white")
 	assert.Equal(t, green, colorForStatus(http.StatusOK), "2xx should be green")
 	assert.Equal(t, white, colorForStatus(http.StatusMovedPermanently), "3xx should be white")
 	assert.Equal(t, yellow, colorForStatus(http.StatusNotFound), "4xx should be yellow")
@@ -358,13 +359,13 @@ func TestErrorLogger(t *testing.T) {
 	router := New()
 	router.Use(ErrorLogger())
 	router.GET("/error", func(c *Context) {
-		c.Error(errors.New("this is an error")) // nolint: errcheck
+		c.Error(errors.New("this is an error")) //nolint: errcheck
 	})
 	router.GET("/abort", func(c *Context) {
-		c.AbortWithError(http.StatusUnauthorized, errors.New("no authorized")) // nolint: errcheck
+		c.AbortWithError(http.StatusUnauthorized, errors.New("no authorized")) //nolint: errcheck
 	})
 	router.GET("/print", func(c *Context) {
-		c.Error(errors.New("this is an error")) // nolint: errcheck
+		c.Error(errors.New("this is an error")) //nolint: errcheck
 		c.String(http.StatusInternalServerError, "hola!")
 	})
 
@@ -382,7 +383,7 @@ func TestErrorLogger(t *testing.T) {
 }
 
 func TestLoggerWithWriterSkippingPaths(t *testing.T) {
-	buffer := new(bytes.Buffer)
+	buffer := new(strings.Builder)
 	router := New()
 	router.Use(LoggerWithWriter(buffer, "/skipped"))
 	router.GET("/logged", func(c *Context) {})
@@ -397,7 +398,7 @@ func TestLoggerWithWriterSkippingPaths(t *testing.T) {
 }
 
 func TestLoggerWithConfigSkippingPaths(t *testing.T) {
-	buffer := new(bytes.Buffer)
+	buffer := new(strings.Builder)
 	router := New()
 	router.Use(LoggerWithConfig(LoggerConfig{
 		Output:    buffer,
