@@ -113,20 +113,27 @@ func (c *Context) Copy() *Context {
 	cp := Context{
 		writermem: c.writermem,
 		Request:   c.Request,
-		Params:    c.Params,
 		engine:    c.engine,
 	}
+
 	cp.writermem.ResponseWriter = nil
 	cp.Writer = &cp.writermem
 	cp.index = abortIndex
 	cp.handlers = nil
-	cp.Keys = map[string]any{}
-	for k, v := range c.Keys {
+	cp.fullPath = c.fullPath
+
+	cKeys := c.Keys
+	cp.Keys = make(map[string]any, len(cKeys))
+	c.mu.RLock()
+	for k, v := range cKeys {
 		cp.Keys[k] = v
 	}
-	paramCopy := make([]Param, len(cp.Params))
-	copy(paramCopy, cp.Params)
-	cp.Params = paramCopy
+	c.mu.RUnlock()
+
+	cParams := c.Params
+	cp.Params = make([]Param, len(cParams))
+	copy(cp.Params, cParams)
+
 	return &cp
 }
 
@@ -386,7 +393,7 @@ func (c *Context) GetStringMapStringSlice(key string) (smss map[string][]string)
 //
 //	router.GET("/user/:id", func(c *gin.Context) {
 //	    // a GET request to /user/john
-//	    id := c.Param("id") // id == "/john"
+//	    id := c.Param("id") // id == "john"
 //	    // a GET request to /user/john/
 //	    id := c.Param("id") // id == "/john/"
 //	})
@@ -873,6 +880,9 @@ func (c *Context) GetHeader(key string) string {
 
 // GetRawData returns stream data.
 func (c *Context) GetRawData() ([]byte, error) {
+	if c.Request.Body == nil {
+		return nil, errors.New("cannot read nil body")
+	}
 	return io.ReadAll(c.Request.Body)
 }
 
