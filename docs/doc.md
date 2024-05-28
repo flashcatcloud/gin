@@ -27,6 +27,7 @@
   - [Only Bind Query String](#only-bind-query-string)
   - [Bind Query String or Post Data](#bind-query-string-or-post-data)
   - [Bind Uri](#bind-uri)
+  - [Bind custom unmarshaler](#bind-custom-unmarshaler)
   - [Bind Header](#bind-header)
   - [Bind HTML checkboxes](#bind-html-checkboxes)
   - [Multipart/Urlencoded binding](#multiparturlencoded-binding)
@@ -897,6 +898,46 @@ Test it with:
 ```sh
 curl -v localhost:8088/thinkerou/987fbc97-4bed-5078-9f07-9141ba07c9f3
 curl -v localhost:8088/thinkerou/not-uuid
+```
+
+### Bind custom unmarshaler
+
+```go
+package main
+
+import (
+  "github.com/gin-gonic/gin"
+  "strings"
+)
+
+type Birthday string
+
+func (b *Birthday) UnmarshalParam(param string) error {
+  *b = Birthday(strings.Replace(param, "-", "/", -1))
+  return nil
+}
+
+func main() {
+  route := gin.Default()
+  var request struct {
+    Birthday Birthday `form:"birthday"`
+  }
+  route.GET("/test", func(ctx *gin.Context) {
+    _ = ctx.BindQuery(&request)
+    ctx.JSON(200, request.Birthday)
+  })
+  route.Run(":8088")
+}
+```
+
+Test it with:
+
+```sh
+curl 'localhost:8088/test?birthday=2000-01-01'
+```
+Result
+```sh
+"2000/01/01"
 ```
 
 ### Bind Header
@@ -1956,7 +1997,12 @@ func SomeHandler(c *gin.Context) {
 }
 ```
 
-For this, you can use `c.ShouldBindBodyWith`.
+For this, you can use `c.ShouldBindBodyWith` or shortcuts.
+
+- `c.ShouldBindBodyWithJSON` is a shortcut for c.ShouldBindBodyWith(obj, binding.JSON).
+- `c.ShouldBindBodyWithXML` is a shortcut for c.ShouldBindBodyWith(obj, binding.XML).
+- `c.ShouldBindBodyWithYAML` is a shortcut for c.ShouldBindBodyWith(obj, binding.YAML).
+- `c.ShouldBindBodyWithTOML` is a shortcut for c.ShouldBindBodyWith(obj, binding.TOML).
 
 ```go
 func SomeHandler(c *gin.Context) {
@@ -1969,7 +2015,7 @@ func SomeHandler(c *gin.Context) {
   } else if errB := c.ShouldBindBodyWith(&objB, binding.JSON); errB == nil {
     c.String(http.StatusOK, `the body should be formB JSON`)
   // And it can accepts other formats
-  } else if errB2 := c.ShouldBindBodyWith(&objB, binding.XML); errB2 == nil {
+  } else if errB2 := c.ShouldBindBodyWithXML(&objB); errB2 == nil {
     c.String(http.StatusOK, `the body should be formB XML`)
   } else {
     ...
