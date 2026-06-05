@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 
@@ -87,6 +88,69 @@ func TestPanicWithAbort(t *testing.T) {
 	w := PerformRequest(router, "GET", "/recovery")
 	// TEST
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPanicRecoveredMonitor(t *testing.T) {
+	defer SetPanicRecoveredMonitor(nil)
+
+	var calls int32
+	SetPanicRecoveredMonitor(func(component, operation string) {
+		assert.Equal(t, "http", component)
+		assert.Equal(t, "request", operation)
+		atomic.AddInt32(&calls, 1)
+	})
+
+	router := New()
+	router.Use(RecoveryWithWriter(nil))
+	router.GET("/recovery", func(_ *Context) {
+		panic("Oupps, Houston, we have a problem")
+	})
+
+	w := PerformRequest(router, "GET", "/recovery")
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&calls))
+}
+
+func TestPanicRecoveredMonitorDoesNotAffectRecovery(t *testing.T) {
+	defer SetPanicRecoveredMonitor(nil)
+
+	SetPanicRecoveredMonitor(func(_, _ string) {
+		panic("monitor panic")
+	})
+
+	router := New()
+	router.Use(RecoveryWithWriter(nil))
+	router.GET("/recovery", func(_ *Context) {
+		panic("Oupps, Houston, we have a problem")
+	})
+
+	w := PerformRequest(router, "GET", "/recovery")
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestPanicRecoveredMonitorWithBrokenPipe(t *testing.T) {
+	defer SetPanicRecoveredMonitor(nil)
+
+	var calls int32
+	SetPanicRecoveredMonitor(func(component, operation string) {
+		assert.Equal(t, "http", component)
+		assert.Equal(t, "request", operation)
+		atomic.AddInt32(&calls, 1)
+	})
+
+	router := New()
+	router.Use(RecoveryWithWriter(nil))
+	router.GET("/recovery", func(_ *Context) {
+		e := &net.OpError{Err: &os.SyscallError{Err: syscall.EPIPE}}
+		panic(e)
+	})
+
+	w := PerformRequest(router, "GET", "/recovery")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&calls))
 }
 
 func TestSource(t *testing.T) {
